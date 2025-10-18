@@ -1,13 +1,24 @@
 "use client";
 import Image from "next/image";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Star, Shield, Truck } from "lucide-react";
-import productsData from "../shop/productsData";
+// import productsData from "../shop/productsData";
 
 export default function Section1() {
+  const [productsData, setProductsData] = useState([]);
   const featuredProducts = productsData.slice(0, 4);
   const marqueeProducts = productsData.slice(4, 10);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const res = await fetch("/api/products");
+      const data = await res.json();
+      setProductsData(data);
+    };
+    fetchProducts();
+  }, []);
 
   const ProductCard = ({ item, size = "medium" }) => (
     <Link href={`/shop/${item.slug}`} className="block">
@@ -211,7 +222,7 @@ export default function Section1() {
             <div className="grid grid-cols-2 gap-3">
               {featuredProducts.map((item, index) => (
                 <motion.div
-                  key={item.id}
+                  key={item.pid}
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 + index * 0.1 }}

@@ -1,44 +1,44 @@
-"use client";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
-export const useCartStore = create(
-  persist(
-    (set, get) => ({
-      cart: [],
+export const useCartStore = create((set, get) => ({
+  cart: [],
 
-      addToCart: (product) => {
-        const cart = get().cart;
-        const existing = cart.find((p) => p.id === product.id);
-        if (existing) {
-          set({
-            cart: cart.map((p) =>
-              p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p
-            ),
-          });
-        } else {
-          set({ cart: [...cart, { ...product, quantity: 1 }] });
-        }
-      },
-
-      removeFromCart: (id) => {
-        set({ cart: get().cart.filter((item) => item.id !== id) });
-      },
-
-      clearCart: () => set({ cart: [] }),
-
-      totalItems: () =>
-        get().cart.reduce((acc, item) => acc + item.quantity, 0),
-
-      totalPrice: () =>
-        get().cart.reduce(
-          (sum, item) => sum + (item.salePrice ?? item.price) * item.quantity,
-          0
+  addToCart: (product) => {
+    const existing = get().cart.find((item) => item.pid === product.pid);
+    if (existing) {
+      set({
+        cart: get().cart.map((item) =>
+          item.pid === product.pid
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         ),
-    }),
-    {
-      name: "cart-storage", // key in localStorage
-      getStorage: () => localStorage, // use localStorage
+      });
+    } else {
+      set({ cart: [...get().cart, { ...product, quantity: 1 }] });
     }
-  )
-);
+  },
+
+  removeFromCart: (pid) => {
+    set({ cart: get().cart.filter((item) => item.pid !== pid) });
+  },
+
+  clearCart: () => set({ cart: [] }),
+
+  updateQuantity: (pid, quantity) => {
+    if (quantity < 1) return;
+    set({
+      cart: get().cart.map((item) =>
+        item.pid === pid ? { ...item, quantity } : item
+      ),
+    });
+  },
+
+  totalItems: () =>
+    get().cart.reduce((total, item) => total + item.quantity, 0),
+
+  totalPrice: () =>
+    get().cart.reduce(
+      (total, item) => total + (item.salePrice ?? item.price) * item.quantity,
+      0
+    ),
+}));

@@ -1,10 +1,9 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCartStore } from "@/store/useCartStore";
 import { Search, ShoppingCart, Sparkles, Loader2, Star } from "lucide-react";
-import productsData from "./productsData";
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -37,39 +36,51 @@ const StarRating = ({ rating = 4.4, reviews = 0, size = "sm" }) => {
   );
 };
 
+// ✅ Updated to match your productsData categories
 const filterOptions = {
   categories: [
     "All Products",
-    "New Arrivals",
-    "Bestsellers",
-    "T-Shirts",
-    "Pants",
+    "Combos",
     "Jackets",
-    "Accessories",
+    "Dresses",
+    "Bottoms",
+    "Formals",
+    "Footwear",
+    "Sweaters",
+    "Shirts",
   ],
   priceRanges: [
-    { label: "Under $25", min: 0, max: 25 },
-    { label: "$25 - $50", min: 25, max: 50 },
+    { label: "Under $50", min: 0, max: 50 },
     { label: "$50 - $100", min: 50, max: 100 },
     { label: "Over $100", min: 100, max: Infinity },
   ],
 };
 
 export default function ShopPage() {
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedCategory, setSelectedCategory] =
-    React.useState("All Products");
-  const [selectedPriceRange, setSelectedPriceRange] = React.useState(null);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All Products");
+  const [selectedPriceRange, setSelectedPriceRange] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { addToCart, totalItems } = useCartStore();
+  const [productsData, setProductsData] = useState([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const res = await fetch("/api/products");
+      const data = await res.json();
+      setProductsData(data);
+    };
+    fetchProducts();
+  }, []);
+
+  useEffect(() => {
     setIsLoading(true);
     const timer = setTimeout(() => setIsLoading(false), 400);
     return () => clearTimeout(timer);
   }, [selectedCategory, selectedPriceRange, searchQuery]);
 
-  const filteredProducts = React.useMemo(() => {
+  // ✅ Fixed filter logic — matches correct categories and price
+  const filteredProducts = useMemo(() => {
     return productsData
       .filter((product) => {
         if (
@@ -77,20 +88,23 @@ export default function ShopPage() {
           !product.title.toLowerCase().includes(searchQuery.toLowerCase())
         )
           return false;
+
         if (
           selectedCategory !== "All Products" &&
           product.category !== selectedCategory
         )
           return false;
+
         if (selectedPriceRange) {
           const price = product.salePrice || product.price;
           const { min, max } = selectedPriceRange;
           if (price < min || price > max) return false;
         }
+
         return true;
       })
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [selectedCategory, selectedPriceRange, searchQuery]);
+  }, [productsData, selectedCategory, selectedPriceRange, searchQuery]);
 
   return (
     <div className="min-h-screen bg-gray-50 w-full">
@@ -135,7 +149,7 @@ export default function ShopPage() {
       </div>
 
       {/* Products Grid */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 relative">
         <AnimatePresence>
           {isLoading && (
             <motion.div
@@ -152,7 +166,7 @@ export default function ShopPage() {
         {filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 w-full">
             {filteredProducts.map((product) => (
-              <Link key={product.id} href={`/shop/${product.slug}`}>
+              <Link key={product.pid} href={`/shop/${product.slug}`}>
                 <motion.div
                   layout
                   whileHover={{ y: -4 }}
@@ -228,7 +242,11 @@ export default function ShopPage() {
               Try adjusting your search or filters
             </p>
             <button
-              onClick={() => setSelectedCategory("All Products")}
+              onClick={() => {
+                setSelectedCategory("All Products");
+                setSelectedPriceRange(null);
+                setSearchQuery("");
+              }}
               className="px-6 py-2.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors"
             >
               Clear filters

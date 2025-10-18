@@ -1,31 +1,43 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import productsData from "../shop/productsData";
 import { useCartStore } from "@/store/useCartStore";
 import { Heart, ShoppingCart } from "lucide-react";
 
 export default function Section2() {
+  const [productsData, setProductsData] = useState([]);
   const { addToCart } = useCartStore();
   const [activeCategory, setActiveCategory] = useState("All");
   const [hoveredCard, setHoveredCard] = useState(null);
   const [likedItems, setLikedItems] = useState(new Set());
 
-  const categories = useMemo(() => {
-    const cats = Array.from(new Set(productsData.map((p) => p.category)));
-    return ["All", ...cats];
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const res = await fetch("/api/products");
+      const data = await res.json();
+      setProductsData(data);
+    };
+    fetchProducts();
   }, []);
 
+  // ✅ FIX #1: Add dependency so categories update when data is fetched
+  const categories = useMemo(() => {
+    if (!productsData.length) return ["All"];
+    const cats = Array.from(new Set(productsData.map((p) => p.category)));
+    return ["All", ...cats];
+  }, [productsData]);
+
+  // ✅ FIX #2: Include productsData in dependency array
   const filteredProducts = useMemo(() => {
     if (activeCategory === "All") return productsData;
     return productsData.filter((p) => p.category === activeCategory);
-  }, [activeCategory]);
+  }, [activeCategory, productsData]);
 
-  const toggleLike = (id) => {
+  const toggleLike = (pid) => {
     setLikedItems((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      next.has(pid) ? next.delete(pid) : next.add(pid);
       return next;
     });
   };
@@ -72,17 +84,17 @@ export default function Section2() {
           ))}
         </div>
 
-        {/* Portrait Grid */}
+        {/* Product Grid */}
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 w-full">
           <AnimatePresence mode="wait">
             {filteredProducts.map((product, index) => (
               <motion.div
-                key={product.id}
+                key={product.pid}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ delay: index * 0.05 }}
-                onMouseEnter={() => setHoveredCard(product.id)}
+                onMouseEnter={() => setHoveredCard(product.pid)}
                 onMouseLeave={() => setHoveredCard(null)}
                 className="group relative bg-white rounded-2xl overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-300"
               >
@@ -94,16 +106,15 @@ export default function Section2() {
                       alt={product.title}
                       className="w-full h-full object-cover transition-transform duration-700 ease-out"
                       animate={
-                        hoveredCard === product.id
+                        hoveredCard === product.pid
                           ? { scale: 1.08 }
                           : { scale: 1 }
                       }
                     />
-                    {/* Overlay */}
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{
-                        opacity: hoveredCard === product.id ? 1 : 0,
+                        opacity: hoveredCard === product.pid ? 1 : 0,
                       }}
                       className="absolute inset-0 bg-black/30 flex justify-center items-center pointer-events-none"
                     >
@@ -147,16 +158,16 @@ export default function Section2() {
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => toggleLike(product.id)}
+                  onClick={() => toggleLike(product.pid)}
                   className={`absolute top-2 right-2 transition-colors z-10 ${
-                    likedItems.has(product.id)
+                    likedItems.has(product.pid)
                       ? "text-red-500"
                       : "text-gray-300 hover:text-red-400"
                   }`}
                 >
                   <Heart
                     className="w-4 h-4"
-                    fill={likedItems.has(product.id) ? "currentColor" : "none"}
+                    fill={likedItems.has(product.pid) ? "currentColor" : "none"}
                   />
                 </motion.button>
               </motion.div>

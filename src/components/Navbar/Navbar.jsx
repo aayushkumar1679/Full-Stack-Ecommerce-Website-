@@ -22,7 +22,7 @@ export default function Navbar() {
     { name: "Shop", href: "/shop" },
     { name: "New Arrivals", href: "/shop" },
     { name: "Men", href: "/shop" },
-    { name: "Women", href: "/shop" },
+    // { name: "Women", href: "/shop" },
     { name: "Collections", href: "/shop" },
     { name: "Sale", href: "/shop" },
   ];
