@@ -22,9 +22,9 @@ export default function Section1() {
         >
           <div className="flex items-center gap-4">
             <img
-              src={item.image}
+              src={item.src}
               alt={item.title}
-              className="w-16 h-16 rounded-lg"
+              className="w-30 h-46 rounded-lg object-fill"
             />
             <div>
               <h4 className="font-semibold text-gray-800">{item.title}</h4>
