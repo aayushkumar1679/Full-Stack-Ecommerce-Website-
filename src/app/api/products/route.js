@@ -1,7 +1,7 @@
 // app/api/products/route.js
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import Product from "@/model/product";
+import Product from "@/models/product";
 
 export async function GET() {
   try {

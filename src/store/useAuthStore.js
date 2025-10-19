@@ -1,17 +1,18 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-export const useAuthStore = create((set) => ({
-  user: null,
-  isLoggedIn: false,
-
-  login: (email, password) => {
-    // Mock authentication (you can replace this with real API)
-    if (email && password) {
-      set({ user: { email }, isLoggedIn: true });
-      return true;
+export const useAuthStore = create(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      login: (user, token) => set({ user, token, isAuthenticated: true }),
+      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+    }),
+    {
+      name: "auth-storage", // key in localStorage
+      getStorage: () => localStorage,
     }
-    return false;
-  },
-
-  logout: () => set({ user: null, isLoggedIn: false }),
-}));
+  )
+);
