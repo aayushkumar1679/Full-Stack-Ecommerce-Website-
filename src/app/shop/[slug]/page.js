@@ -60,7 +60,8 @@ export default function ProductDetails() {
             Product Not Found
           </h1>
           <p className="text-gray-600 mb-8">
-            The product you're looking for doesn't exist or has been moved.
+            The product you &apos;are looking for doesn &apos;t exist or has
+            been moved.
           </p>
           <Link
             href="/shop"
