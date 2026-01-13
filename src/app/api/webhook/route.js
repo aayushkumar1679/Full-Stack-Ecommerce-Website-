@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 
-/* ------------------ Mongo Model ------------------ */
+/* ------------------ Mongo Models ------------------ */
 
 const WebhookEventSchema = new mongoose.Schema(
   {
@@ -22,12 +22,27 @@ const WebhookEvent =
   mongoose.models.WebhookEvent ||
   mongoose.model("WebhookEvent", WebhookEventSchema);
 
+/* New: Submission data store (stores submission payload for easy inspection) */
+const SubmissionSchema = new mongoose.Schema(
+  {
+    submission_id: { type: String, required: true },
+    form_id: { type: String, required: true },
+    workspace_id: { type: String, required: false },
+    data: { type: Object, required: true },
+    received_at: { type: Date, required: true },
+  },
+  { timestamps: true }
+);
+
+const Submission =
+  mongoose.models.Submission || mongoose.model("Submission", SubmissionSchema);
+
 /* ------------------ Signature Verification ------------------ */
 
 function verifySignature(rawBody, secret, timestamp, signature) {
   // Replay protection (5 minutes)
   const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - Number(timestamp)) > 300) return false;
+  if (!timestamp || Math.abs(now - Number(timestamp)) > 300) return false;
 
   const signedPayload = `${timestamp}.${rawBody}`;
 
@@ -49,6 +64,14 @@ function verifySignature(rawBody, secret, timestamp, signature) {
 /* ------------------ POST Handler ------------------ */
 
 export async function POST(req) {
+  // TEMPORARY DEBUG LOG (remove after verification)
+  console.log("WEBHOOK HIT", {
+    method: req.method,
+    url: req.url,
+    hasSignature: !!req.headers.get("x-forge-signature"),
+    hasTimestamp: !!req.headers.get("x-forge-timestamp"),
+  });
+
   try {
     // ---- Read raw body FIRST ----
     const rawBody = await req.text();
@@ -56,7 +79,8 @@ export async function POST(req) {
     let payload;
     try {
       payload = JSON.parse(rawBody);
-    } catch {
+    } catch (parseErr) {
+      console.warn("Webhook: invalid JSON payload");
       return NextResponse.json(
         { error: "Invalid JSON payload" },
         { status: 400 }
@@ -67,6 +91,7 @@ export async function POST(req) {
     const timestamp = req.headers.get("x-forge-timestamp");
 
     if (!signature || !timestamp) {
+      console.warn("Webhook: missing signature or timestamp headers");
       return NextResponse.json(
         { error: "Missing signature headers" },
         { status: 400 }
@@ -92,12 +117,45 @@ export async function POST(req) {
     // ---- DB write ----
     await connectToDatabase();
 
-    await WebhookEvent.create({
+    // Save the generic webhook event
+    const createdEvent = await WebhookEvent.create({
       event: payload.event || "form.submitted",
       form_id: payload.form_id,
-      submission_id: payload.submission_id || payload.id,
+      submission_id:
+        payload.submission_id ||
+        payload.id ||
+        (payload.data && payload.data.id) ||
+        "unknown",
       payload,
       received_at: new Date(),
+    });
+
+    // If payload contains submission data, also store it in Submission collection
+    // Common envelope shape: { data: { ... } } where data is the submission object
+    const submissionData = payload.data ?? null;
+    if (submissionData) {
+      try {
+        await Submission.create({
+          submission_id:
+            payload.submission_id ||
+            payload.id ||
+            submissionData.id ||
+            `s-${Date.now()}`,
+          form_id: payload.form_id,
+          workspace_id: payload.workspace_id ?? null,
+          data: submissionData,
+          received_at: new Date(),
+        });
+      } catch (subErr) {
+        console.error("Failed to create Submission record:", subErr);
+        // do not fail the webhook — we've already created WebhookEvent
+      }
+    }
+
+    // Helpful temporary log to confirm DB writes (remove after testing)
+    console.log("WEBHOOK STORED", {
+      webhookEventId: createdEvent?._id?.toString?.(),
+      storedSubmission: !!submissionData,
     });
 
     // ---- Explicit success ----
