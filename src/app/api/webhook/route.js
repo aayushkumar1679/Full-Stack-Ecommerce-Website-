@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
@@ -23,9 +25,7 @@ const WebhookEvent =
 /* ------------------ Signature Verification ------------------ */
 
 function verifySignature(rawBody, secret, timestamp, signature) {
-  if (!signature || !timestamp) return false;
-
-  // Replay protection (5 min window)
+  // Replay protection (5 minutes)
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - Number(timestamp)) > 300) return false;
 
@@ -50,11 +50,28 @@ function verifySignature(rawBody, secret, timestamp, signature) {
 
 export async function POST(req) {
   try {
+    // ---- Read raw body FIRST ----
     const rawBody = await req.text();
-    const payload = JSON.parse(rawBody);
+
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON payload" },
+        { status: 400 }
+      );
+    }
 
     const signature = req.headers.get("x-forge-signature");
     const timestamp = req.headers.get("x-forge-timestamp");
+
+    if (!signature || !timestamp) {
+      return NextResponse.json(
+        { error: "Missing signature headers" },
+        { status: 400 }
+      );
+    }
 
     const secret = process.env.FORGE_WEBHOOK_SECRET;
     if (!secret) {
@@ -72,6 +89,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
+    // ---- DB write ----
     await connectToDatabase();
 
     await WebhookEvent.create({
@@ -82,7 +100,8 @@ export async function POST(req) {
       received_at: new Date(),
     });
 
-    return NextResponse.json({ ok: true });
+    // ---- Explicit success ----
+    return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     console.error("❌ Webhook processing failed:", error);
     return NextResponse.json(
