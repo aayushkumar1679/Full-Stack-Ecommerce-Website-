@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { connectToDatabase } from "@/lib/db"; // adjust path if needed
+import { connectToDatabase } from "@/lib/mongodb";
 
 /* ------------------ Mongo Model ------------------ */
 
